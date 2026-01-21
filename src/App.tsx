@@ -67,8 +67,12 @@ function App() {
 
   const handleCharacteristicValueChanged = useCallback((event: Event) => {
     const characteristic = event.target as BluetoothRemoteGATTCharacteristic
+    console.log('Characteristic value changed event received');
     if (characteristic.value) {
+      console.log('Characteristic value length:', characteristic.value.byteLength);
       parseHeartRateMeasurement(characteristic.value)
+    } else {
+      console.warn('Characteristic value is empty');
     }
   }, [parseHeartRateMeasurement])
 
@@ -79,39 +83,77 @@ function App() {
         throw new Error('Web Bluetooth API is not available in this browser.')
       }
 
+      console.log('Requesting Bluetooth Device...');
       const device = await navigator.bluetooth.requestDevice({
         filters: [{ services: ['heart_rate'] }]
       })
 
+      console.log('Connecting to GATT Server...');
       const server = await device.gatt?.connect()
       if (!server) throw new Error('Could not connect to GATT server')
 
+      console.log('Getting Heart Rate Service...');
       const service = await server.getPrimaryService('heart_rate')
+      
+      console.log('Getting Heart Rate Measurement Characteristic...');
       const characteristic = await service.getCharacteristic('heart_rate_measurement')
       characteristicRef.current = characteristic
 
+      console.log('Adding Event Listener...');
+      characteristic.removeEventListener('characteristicvaluechanged', handleCharacteristicValueChanged)
       characteristic.addEventListener('characteristicvaluechanged', handleCharacteristicValueChanged)
 
+      console.log('Starting Notifications...');
       await characteristic.startNotifications()
+
+      // Workaround for some browsers/platforms where notifications might need a "kick"
+      // or to ensure the characteristic value is actually read if it doesn't fire immediately
+      try {
+        const initialValue = await characteristic.readValue();
+        if (initialValue) {
+          console.log('Initial characteristic value read successfully');
+          parseHeartRateMeasurement(initialValue);
+        }
+      } catch (e) {
+        console.log('Initial read not supported or failed, relying on notifications:', e);
+      }
+
       setIsConnected(true)
 
       device.addEventListener('gattserverdisconnected', () => {
+        console.log('GATT Server disconnected');
         setIsConnected(false)
         characteristicRef.current = null
       })
 
     } catch (err) {
-      console.error(err)
+      console.error('Error in connectBle:', err)
       setError(err instanceof Error ? err.message : String(err))
     }
   }
 
-  const disconnectBle = () => {
-    if (characteristicRef.current?.service?.device?.gatt?.connected) {
-      characteristicRef.current.service.device.gatt.disconnect()
+  const disconnectBle = useCallback(() => {
+    if (characteristicRef.current) {
+      characteristicRef.current.removeEventListener('characteristicvaluechanged', handleCharacteristicValueChanged)
+      if (characteristicRef.current.service?.device?.gatt?.connected) {
+        characteristicRef.current.service.device.gatt.disconnect()
+      }
+      characteristicRef.current = null
     }
     setIsConnected(false)
-  }
+  }, [handleCharacteristicValueChanged])
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (characteristicRef.current) {
+        characteristicRef.current.removeEventListener('characteristicvaluechanged', handleCharacteristicValueChanged)
+        if (characteristicRef.current.service?.device?.gatt?.connected) {
+          characteristicRef.current.service.device.gatt.disconnect()
+        }
+      }
+    }
+  }, [handleCharacteristicValueChanged])
 
   return (
     <div className="App" style={{ padding: '20px', fontFamily: 'sans-serif' }}>
