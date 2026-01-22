@@ -1,0 +1,25 @@
+.small-widget {
+  border: 2px solid #333;
+  border-radius: 8px;
+  padding: 10px;
+  width: 120px;
+  height: 120px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background-color: white;
+  box-sizing: border-box;
+}
+
+.small-widget-label {
+  font-size: 14px;
+  font-weight: bold;
+  color: #666;
+  margin-bottom: 5px;
+}
+
+.small-widget-value {
+  font-size: 48px;
+  font-weight: bold;
+}

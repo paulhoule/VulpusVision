@@ -1,0 +1,63 @@
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 20px;
+  justify-content: center;
+  align-items: start;
+  margin-top: 20px;
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* PoincarePlot is 400x400. With 140px columns and 20px gap:
+   140*2 + 20 = 300
+   140*3 + 20*2 = 460
+   So span 3 is good for 400px width.
+*/
+.poincare-container {
+  grid-column: span 3;
+  grid-row: span 3;
+  display: flex;
+  justify-content: center;
+}
+
+.poincare-svg,
+.time-series-svg {
+  border: 1px solid #eee;
+  border-radius: 8px;
+  background-color: white;
+}
+
+.time-series-container {
+  grid-column: 1 / -1;
+  border: 1px solid #ccc;
+  padding: 20px;
+  background-color: #f9f9f9;
+  border-radius: 8px;
+  min-height: 200px;
+  margin-top: 20px;
+}
+
+/* Heart beat animation styles */
+.heart-beat-widget {
+  transition: background-color 0.3s, border-color 0.3s;
+}
+
+.heart-beat-widget.lit {
+  background-color: #ffe0e0;
+  border-color: #ff4444;
+  transition: background-color 0.05s, border-color 0.05s;
+}
+
+.heart-icon {
+  display: inline-block;
+  transition: color 0.3s, transform 0.3s;
+  filter: grayscale(100%) opacity(0.3);
+}
+
+.heart-icon.lit {
+  filter: none;
+  transform: scale(1.2);
+  transition: filter 0.05s, transform 0.05s;
+}
