@@ -1,5 +1,5 @@
-import type { CSSProperties } from 'react'
 import type { RRData } from './App'
+import SmallWidget from './SmallWidget'
 
 interface SdDisplayProps {
   rrIntervals: RRData[]
@@ -26,42 +26,10 @@ const SdDisplay = ({ rrIntervals }: SdDisplayProps) => {
   const mean2 = d2.reduce((a, b) => a + b, 0) / d2.length
   const sd2 = Math.sqrt(d2.reduce((a, b) => a + Math.pow(b - mean2, 2), 0) / d2.length)
 
-  const boxStyle: CSSProperties = {
-    border: '2px solid #333',
-    borderRadius: '8px',
-    padding: '10px',
-    width: '120px',
-    height: '120px',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'white',
-    margin: '10px'
-  }
-
-  const labelStyle: CSSProperties = {
-    fontSize: '14px',
-    fontWeight: 'bold',
-    color: '#666',
-    marginBottom: '5px'
-  }
-
-  const valueStyle: CSSProperties = {
-    fontSize: '48px',
-    fontWeight: 'bold'
-  }
-
   return (
     <>
-      <div style={boxStyle}>
-        <div style={labelStyle}>SD1</div>
-        <div style={valueStyle}>{Math.round(sd1)}</div>
-      </div>
-      <div style={boxStyle}>
-        <div style={labelStyle}>SD2</div>
-        <div style={valueStyle}>{Math.round(sd2)}</div>
-      </div>
+      <SmallWidget label="SD1" value={Math.round(sd1)} />
+      <SmallWidget label="SD2" value={Math.round(sd2)} />
     </>
   )
 }

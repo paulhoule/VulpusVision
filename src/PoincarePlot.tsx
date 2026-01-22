@@ -90,14 +90,14 @@ const PoincarePlot = ({ data }: PoincarePlotProps) => {
       .attr('fill', '#69b3a2')
       .attr('opacity', 0.6)
 
-  }, [data])
+  }, [data, height, margin.left, margin.top, width])
 
   return (
     <svg
       ref={svgRef}
       width={width + margin.left + margin.right}
       height={height + margin.top + margin.bottom}
-      style={{ border: '1px solid #eee', borderRadius: '8px', backgroundColor: 'white', margin: '10px' }}
+      className="poincare-svg"
     />
   )
 }

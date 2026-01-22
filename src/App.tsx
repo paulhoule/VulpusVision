@@ -1,8 +1,11 @@
 import { useState, useCallback, useRef, useEffect } from 'react'
 import './App.css'
+import './Dashboard.css'
 import PoincarePlot from './PoincarePlot'
 import BpmDisplay from './BpmDisplay'
 import SdDisplay from './SdDisplay'
+import HeartBeatWidget from './HeartBeatWidget'
+import TimeSeriesPlot from './TimeSeriesPlot'
 
 export interface RRData {
   value: number
@@ -14,8 +17,44 @@ const TIME_WINDOW = 2 * 60 * 1000 // 2 minutes in ms
 function App() {
   const [rrIntervals, setRrIntervals] = useState<RRData[]>([])
   const [isConnected, setIsConnected] = useState(false)
+  const [isMuted, setIsMuted] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const characteristicRef = useRef<BluetoothRemoteGATTCharacteristic | null>(null)
+  const audioContextRef = useRef<AudioContext | null>(null)
+
+  const playBeep = useCallback(() => {
+    if (isMuted) return
+
+    try {
+      if (!audioContextRef.current) {
+        const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+        audioContextRef.current = new AudioContextClass()
+      }
+      const ctx = audioContextRef.current
+      
+      // Ensure context is running (might be suspended by browser)
+      if (ctx.state === 'suspended') {
+        ctx.resume()
+      }
+
+      const oscillator = ctx.createOscillator()
+      const gainNode = ctx.createGain()
+
+      oscillator.connect(gainNode)
+      gainNode.connect(ctx.destination)
+
+      oscillator.type = 'sine'
+      oscillator.frequency.setValueAtTime(800, ctx.currentTime)
+      
+      gainNode.gain.setValueAtTime(0.1, ctx.currentTime)
+      gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1)
+
+      oscillator.start()
+      oscillator.stop(ctx.currentTime + 0.1)
+    } catch (e) {
+      console.error('Error playing beep:', e)
+    }
+  }, [isMuted])
 
   // Prune data older than TIME_WINDOW
   useEffect(() => {
@@ -56,6 +95,7 @@ function App() {
         const rrMs = Math.round((rrRaw / 1024) * 1000)
         newIntervals.push({ value: rrMs, timestamp: now })
         offset += 2
+        playBeep()
       }
       setRrIntervals(prev => {
         const combined = [...prev, ...newIntervals]
@@ -63,7 +103,7 @@ function App() {
         return combined.filter(item => item.timestamp >= cutoff)
       })
     }
-  }, [])
+  }, [playBeep])
 
   const handleCharacteristicValueChanged = useCallback((event: Event) => {
     const characteristic = event.target as BluetoothRemoteGATTCharacteristic
@@ -75,7 +115,18 @@ function App() {
   const connectBle = async () => {
     try {
       setError(null)
+
+      // Initialize audio context on user gesture
+      if (!audioContextRef.current) {
+        const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+        audioContextRef.current = new AudioContextClass()
+      }
+      if (audioContextRef.current.state === 'suspended') {
+        await audioContextRef.current.resume()
+      }
+
       if (!navigator.bluetooth) {
+        // noinspection ExceptionCaughtLocallyJS
         throw new Error('Web Bluetooth API is not available in this browser.')
       }
 
@@ -84,7 +135,9 @@ function App() {
       })
 
       const server = await device.gatt?.connect()
-      if (!server) throw new Error('Could not connect to GATT server')
+      if (!server) { // noinspection ExceptionCaughtLocallyJS
+        throw new Error('Could not connect to GATT server')
+      }
 
       const service = await server.getPrimaryService('heart_rate')
       const characteristic = await service.getCharacteristic('heart_rate_measurement')
@@ -114,7 +167,7 @@ function App() {
   }
 
   return (
-    <div className="App" style={{ padding: '20px', fontFamily: 'sans-serif' }}>
+    <div className="App">
       <h1>Polar H10 R-R Intervals</h1>
       
       <div className="card">
@@ -127,6 +180,13 @@ function App() {
             Disconnect
           </button>
         )}
+        <button 
+          onClick={() => setIsMuted(!isMuted)} 
+          style={{ marginLeft: '10px', padding: '10px 20px', fontSize: '16px', cursor: 'pointer' }}
+          title={isMuted ? "Turn on heart beat sound" : "Turn off heart beat sound"}
+        >
+          {isMuted ? '🔇' : '🔊'}
+        </button>
         {error && <p style={{ color: 'red', marginTop: '10px' }}>{error}</p>}
       </div>
 
@@ -139,13 +199,20 @@ function App() {
 
       {rrIntervals.length > 0 && (
         <div style={{ marginTop: '20px' }}>
-          <h3>Visualization</h3>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexWrap: 'wrap' }}>
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <BpmDisplay rrIntervals={rrIntervals} />
-              <SdDisplay rrIntervals={rrIntervals} />
+          <h3>Dashboard</h3>
+          <div className="dashboard-grid">
+            <BpmDisplay rrIntervals={rrIntervals} />
+            <HeartBeatWidget lastTimestamp={rrIntervals[rrIntervals.length - 1]?.timestamp ?? 0} />
+            <SdDisplay rrIntervals={rrIntervals} />
+            
+            <div className="poincare-container">
+              <PoincarePlot data={rrIntervals} />
             </div>
-            <PoincarePlot data={rrIntervals} />
+
+            <div className="time-series-container">
+              <h3>Heart Rate Time Series</h3>
+              <TimeSeriesPlot data={rrIntervals} />
+            </div>
           </div>
         </div>
       )}
